@@ -1,5 +1,6 @@
 from django.shortcuts   import render
 from django.http        import JsonResponse
+from json               import loads
 
 from rest_framework.decorators  import api_view
 from rest_framework.response    import Response
@@ -69,8 +70,8 @@ class DatasetView(APIView):
         """
         try:
             name        = request.data.get('name')
-            features    = request.data.get('features')
-            targets     = request.data.get('targets')
+            features    = loads(request.data.get('features'))
+            targets     = loads(request.data.get('targets'))
             path        = request.data.get('path')
 
             if Dataset.objects.filter(name = name).count() > 0:
@@ -240,6 +241,9 @@ class ModelFileView(APIView):
         try:
             model_name  = request.data.get('model_name')
             dataset_id  = request.data.get('dataset_id')
+
+            dataset_id  = int(dataset_id) if str(type(dataset_id)) == "<class 'str'>" else dataset_id
+
             dataset     = Dataset.objects.get(id = dataset_id)
 
             if ModelFile.objects.filter(model_name = model_name, dataset = dataset).count() > 0:
@@ -264,9 +268,9 @@ class ModelFileView(APIView):
 
             modelFileRecord.save()
 
-            response = "Successfully added dataset"
+            response = "Successfully trained model and saved"
         except Exception as e:
-            response = f"Unable to add dataset, due to Exception {e}"
+            response = f"Unable to train model, due to Exception {e}"
         
         return Response(response)       
 
@@ -438,7 +442,7 @@ class ModelResponseView(APIView):
                 "model_name"    : modelFileRecord.model_name,
                 "dataset"       : modelFileRecord.dataset.name,
                 "model_path"    : modelFileRecord.model_obj.url,
-                **give_analyze_report(
+                **give_analysis_report(
                     modelFileRecord.model_obj.open('rb'), 
                     dataset_id
                 )
