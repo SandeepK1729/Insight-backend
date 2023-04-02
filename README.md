@@ -5,18 +5,18 @@
 
 #### Get all datasets
 
-```http
+```https
   GET /api/datasets
 ```
 #### Upload new dataset
 
-```http
+```https
   POST /api/datasets
 ```
 
 #### Get specific dataset
 
-```http
+```https
   GET /api/datasets/${id}
 ```
 
@@ -26,7 +26,7 @@
 
 #### Full update of specific dataset
 
-```http
+```https
   PUT /api/datasets/${id}
 ```
 
@@ -36,7 +36,7 @@
 
 #### Partial update of specific dataset
 
-```http
+```https
   PATCH /api/datasets/${id}
 ```
 
@@ -46,7 +46,7 @@
 
 #### Delete specific dataset
 
-```http
+```https
   DELETE /api/datasets/${id}
 ```
 
