@@ -72,7 +72,7 @@ ADMIN_MEDIA_URL = STATIC_URL + 'admin/' #admin is now served by staticfiles
 
 STATICFILES_DIRS = [
     Path.joinpath(BASE_DIR, 'static'),
-    Path.joinpath(BASE_DIR, '..', 'frontend', 'build', 'static'),
+    # Path.joinpath(BASE_DIR, '..', 'frontend', 'build', 'static'),
 ]
 
 STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"  # new
