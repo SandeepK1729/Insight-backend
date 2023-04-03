@@ -15,7 +15,9 @@ from django.core.files.base         import File, ContentFile
 from django.utils.decorators        import method_decorator
 from django.views.decorators.cache  import cache_page
 from django.core.cache              import cache
+from django.core.files.storage      import FileSystemStorage
 
+# fs = FileSystemStorage(location = settings.MEDIA_ROOT + "")
 @cache_page(60 * 60 * 30)
 @api_view(['GET'])
 def apiOverview(request):
