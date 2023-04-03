@@ -8,6 +8,11 @@ To get started with Insight Backend, you'll need to clone this repository to you
 1. Clone the repository: `git clone https://github.com/username/insight-backend.git`
 1. Change into the project directory: `cd insight-backend`
 1. Install dependencies: `pip install -r requirements.txt`
+1. Create .env file in Insight directory: 
+   ```Python
+      SECRET_KEY=<your-secret-key>
+    ```
+1. Change DATABASES in Insight/settings.py to LOCAL_DATABASE
 1. Run migrations: `python manage.py migrate`
 1. Start the server: `python manage.py runserver`
 
