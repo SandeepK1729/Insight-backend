@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', '.vercel.app', '.onrender.com', 'localhost']
 
@@ -125,7 +125,7 @@ LIST_OF_DATABASES = {
 }
 
 DATABASES = {
-    'default': LIST_OF_DATABASES['postgres']
+    'default': LIST_OF_DATABASES[env('DATABASE', default='local')]
 }
 
 

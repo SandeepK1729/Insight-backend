@@ -45,7 +45,9 @@ class ModelFile(models.Model):
     dataset     = models.ForeignKey(Dataset, on_delete = models.CASCADE)
     model_obj   = models.FileField(upload_to = settings.MODEL_PATH_FIELD_DIRECTORY, null= True)
     # author      = models.CharField(max_length = 30)
-    
+    features    = models.JSONField(default = dict)
+    targets     = models.JSONField(default = dict)
+
     def __str__(self):
         return f"{self.model_name} trained on {self.dataset}"
 

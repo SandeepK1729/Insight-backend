@@ -41,7 +41,6 @@ class DatasetView(APIView):
     """ 
         List of all Datasets available, and upload a dataset
     """
-    @method_decorator(cache_page(60))
     def get(self, request):
         """Get all datasets
 
@@ -52,10 +51,12 @@ class DatasetView(APIView):
             JSON: list of all datasets
         """
         try:
-            res = DatasetSerializer(
-                    Dataset.objects.all(),
-                    many = True
-                ).data
+            if cache.has_key("datasets"):
+                res = cache.get("datasets")
+            else:
+                res = DatasetSerializer(Dataset.objects.all(), many = True).data
+                cache.set("datasets", res)
+                
         except Exception as e:
             res = f"Unable to load datasets, beacuase {e}"
         
@@ -214,7 +215,6 @@ class ModelFileView(APIView):
     """
         List of all Models, or create a model and save into file
     """
-    @method_decorator(cache_page(60))
     def get(self, request):
         """invokes when get request
 
@@ -224,12 +224,18 @@ class ModelFileView(APIView):
         Returns:
             Response: list of all models
         """
-        return Response(
-            ModelFileSerializer(
-                ModelFile.objects.all(),
-                many = True
-            ).data
-        )
+        models = None
+        if cache.has_key("models"):
+            return Response(cache.get("models"))
+        
+        models = ModelFileSerializer(
+                    ModelFile.objects.all(),
+                    many = True
+                ).data
+
+        cache.set("models", models, 60 * 60)
+
+        return Response(models)
     
     def post(self, request):
         """invokes post request called used to create model
