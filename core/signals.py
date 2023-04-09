@@ -3,12 +3,23 @@ from django.dispatch            import receiver
 from django.core.cache          import cache
 
 from .models import Dataset, ModelFile
-from .serializers import DatasetSerializer
+from .serializers import DatasetSerializer, ModelFileSerializer
 
 @receiver(post_save, sender=Dataset)
-@receiver(post_delete, sender=Dataset)
 def datasets_update(sender, instance, **kwargs):
     """informs the backend that the dataset list has changed
+
+    Args:
+        sender (Model): name of the model that triggered the signal
+        instance (Model obj): instance of the model that triggered the signal
+    """
+
+    cache.delete('datasets')
+    cache.set('datasets', DatasetSerializer(Dataset.objects.all(), many=True).data, 60*60*2)
+
+@receiver(post_delete, sender=Dataset)
+def datasets_delete(sender, instance, **kwargs):
+    """informs the backend that the dataset record is deleted
 
     Args:
         sender (Model): name of the model that triggered the signal
@@ -19,11 +30,21 @@ def datasets_update(sender, instance, **kwargs):
     cache.delete('datasets')
     cache.set('datasets', DatasetSerializer(Dataset.objects.all(), many=True).data, 60*60*2)
 
-
 @receiver(post_save, sender=ModelFile)
-@receiver(post_delete, sender=ModelFile)
 def model_files_update(sender, instance, **kwargs):
-    """informs the backend that the dataset list has changed
+    """informs the backend that the model files updated
+
+    Args:
+        sender (Model): name of the model that triggered the signal
+        instance (Model obj): instance of the model that triggered the signal
+    """
+
+    cache.delete('model_files')
+    cache.set('model_files', ModelFileSerializer(ModelFile.objects.all(), many = True).data , 60*60*2)
+
+@receiver(post_delete, sender=ModelFile)
+def model_files_delete(sender, instance, **kwargs):
+    """informs the backend that the model file is deleted
 
     Args:
         sender (Model): name of the model that triggered the signal

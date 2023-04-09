@@ -43,7 +43,7 @@ class ModelFile(models.Model):
                     null = False
                 )
     dataset     = models.ForeignKey(Dataset, on_delete = models.CASCADE)
-    model_obj   = models.FileField(upload_to = settings.MODEL_PATH_FIELD_DIRECTORY, null= True)
+    model_obj   = models.FileField(upload_to = 'saved_models', null= True)
     # author      = models.CharField(max_length = 30)
     features    = models.JSONField(default = dict)
     targets     = models.JSONField(default = dict)

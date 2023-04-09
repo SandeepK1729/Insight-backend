@@ -24,3 +24,8 @@ urlpatterns += static(
                 document_root = settings.STATIC_ROOT
             )
         
+
+# from django.contrib import admin
+
+# admin.site.index_template = 'admin/my_custom_index.html'
+# admin.autodiscover()

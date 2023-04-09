@@ -66,7 +66,7 @@ TEMP_STATIC_ROOT = Path.joinpath(BASE_DIR, 'static')
 MEDIA_URL   = '/media/'
 MEDIA_ROOT  = Path.joinpath(BASE_DIR, 'static/media')
 
-MODEL_PATH_FIELD_DIRECTORY = Path.joinpath(BASE_DIR, 'static/media/saved_models')
+# MODEL_PATH_FIELD_DIRECTORY = Path.joinpath(BASE_DIR, 'static/media/saved_models')
 
 ADMIN_MEDIA_URL = STATIC_URL + 'admin/' #admin is now served by staticfiles
 

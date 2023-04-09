@@ -71,26 +71,27 @@ class DatasetView(APIView):
         Returns:
             JSON: message about transaction
         """
-        try:
-            name        = request.data.get('name')
-            features    = loads(request.data.get('features'))
-            targets     = loads(request.data.get('targets'))
-            path        = request.data.get('path')
+        # try:
+        name        = request.data.get('name')
+        features    = loads(request.data.get('features'))
+        targets     = loads(request.data.get('targets'))
+        path        = request.data.get('path')
 
-            if Dataset.objects.filter(name = name).count() > 0:
-                return Response("Unable to upload dataset, because name already exist")
-            
-            dataset     = Dataset(
-                            name        = name,
-                            features    = features,
-                            targets     = targets,
-                            path        = path
-                        )
-            dataset.save()
-            res = "Dataset uploaded successfully"
+        if Dataset.objects.filter(name = name).count() > 0:
+            return Response("Unable to upload dataset, because name already exist")
+        
+        dataset     = Dataset(
+                        name        = name,
+                        features    = features,
+                        targets     = targets,
+                        path        = path
+                    )
 
-        except Exception as e:
-            res = f"Unable to upload dataset, because {e}"
+        dataset.save()
+        res = "Dataset uploaded successfully"
+
+        # except Exception as e:
+        #     res = f"Unable to upload dataset, because {e}"
         
         return Response(res)
 
@@ -224,18 +225,16 @@ class ModelFileView(APIView):
         Returns:
             Response: list of all models
         """
-        models = None
-        if cache.has_key("models"):
-            return Response(cache.get("models"))
-        
-        models = ModelFileSerializer(
-                    ModelFile.objects.all(),
-                    many = True
-                ).data
+        try:
+            if cache.has_key("model_files"):
+                res = cache.get("model_files")
+            else:
+                res = ModelFileSerializer(ModelFile.objects.all(), many = True).data
+                cache.set("model_files", res, 60 * 60 * 2)
+        except Exception as e:
+            res = f"Unable to load models, beacuase {e}"
 
-        cache.set("models", models, 60 * 60)
-
-        return Response(models)
+        return Response(res)
     
     def post(self, request):
         """invokes post request called used to create model
