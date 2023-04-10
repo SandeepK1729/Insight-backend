@@ -268,7 +268,7 @@ class ModelFileView(APIView):
                     get_trained_model(
                         model_name,
                         dataset_id,
-                        request.data.get('knn_val', 0),
+                        int(request.data.get('knn_val', '0')),
                     )
                 )
             )
@@ -439,6 +439,7 @@ class ModelResponseView(APIView):
             JSON: list of saved models
         """
         try:
+            print(request.data)
             model_name  = request.data.get('model_name', None)
             dataset_id  = request.data.get('dataset_id')
             dataset     = Dataset.objects.get(id = dataset_id)
