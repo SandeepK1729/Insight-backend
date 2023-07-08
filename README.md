@@ -5,7 +5,7 @@ Insight Backend is the server-side component of the Insight machine learning web
 ## Installation
 To get started with Insight Backend, you'll need to clone this repository to your local machine and install its dependencies. Here's how to do that:
 
-1. Clone the repository: `git clone https://github.com/username/insight-backend.git`
+1. Clone the repository: `git clone https://github.com/SandeepK1729/insight-backend.git`
 1. Change into the project directory: `cd insight-backend`
 1. Install dependencies: `pip install -r requirements.txt`
 1. Create .env file in Insight directory: 
