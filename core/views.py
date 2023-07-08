@@ -1,23 +1,28 @@
-from django.shortcuts   import render
+from django.shortcuts   import render, get_object_or_404
 from django.http        import JsonResponse
 from json               import loads
 
-from rest_framework.decorators  import api_view
-from rest_framework.response    import Response
-from rest_framework.views       import APIView
-from rest_framework             import viewsets
+from rest_framework.decorators      import api_view
+from rest_framework.response        import Response
+from rest_framework                 import status, permissions
+from rest_framework.views           import APIView
+from rest_framework                 import viewsets
+from rest_framework.authentication  import SessionAuthentication, BasicAuthentication
 
-from .serializers   import DatasetSerializer, ModelFileSerializer
-from .models        import Dataset, ModelFile
-from .helper        import get_trained_model, give_analysis_report
+from .authenicators import CsrfExemptSessionAuthentication
+from .serializers   import ModelFileSerializer, UserSerializer
+from .models        import ModelFile, User
+from .helper        import *
 
-from django.core.files.base         import File, ContentFile
 from django.utils.decorators        import method_decorator
 from django.views.decorators.cache  import cache_page
+from django.views.decorators.csrf   import csrf_exempt
 from django.core.cache              import cache
 from django.core.files.storage      import FileSystemStorage
 
-# fs = FileSystemStorage(location = settings.MEDIA_ROOT + "")
+from django.contrib.auth            import authenticate, login, logout
+from django.contrib.auth.models     import AnonymousUser
+
 @cache_page(60 * 60 * 30)
 @api_view(['GET'])
 def apiOverview(request):
@@ -26,173 +31,14 @@ def apiOverview(request):
     """
     host = request.get_host()
     return Response({
-        'datasets'          : f"http://{host}/api/datasets",
-        'dataset detail'    : f"http://{host}/api/datasets/pk:int",
-        
         'models'            : f"http://{host}/api/models",
-        'model detail'      : f"http://{host}/api/models/pk:int",
-        'supported models'  : f"http://{host}/api/supported-models/",
-
-        'analysis'           : f"http://{host}/api/analyze",
+        'model detail'      : f"http://{host}/api/model/<str:project_name>",
+        'supported models'  : f"http://{host}/api/supported-models",
+        'public models'  : f"http://{host}/api/public-models",
         
-    })
-
-class DatasetView(APIView):
-    """ 
-        List of all Datasets available, and upload a dataset
-    """
-    def get(self, request):
-        """Get all datasets
-
-        Args:
-            request (client request): contains client data
-
-        Returns:
-            JSON: list of all datasets
-        """
-        try:
-            if cache.has_key("datasets"):
-                res = cache.get("datasets")
-            else:
-                res = DatasetSerializer(Dataset.objects.all(), many = True).data
-                cache.set("datasets", res)
-                
-        except Exception as e:
-            res = f"Unable to load datasets, beacuase {e}"
+        'project'           : f"http://{host}/api/project/<str:project_name>",
         
-        return Response(res)
-
-    def post(self, request):
-        """Upload a dataset
-
-        Args:
-            request (client request): contains client data
-
-        Returns:
-            JSON: message about transaction
-        """
-        # try:
-        name        = request.data.get('name')
-        features    = loads(request.data.get('features'))
-        targets     = loads(request.data.get('targets'))
-        path        = request.data.get('path')
-
-        if Dataset.objects.filter(name = name).count() > 0:
-            return Response("Unable to upload dataset, because name already exist")
-        
-        dataset     = Dataset(
-                        name        = name,
-                        features    = features,
-                        targets     = targets,
-                        path        = path
-                    )
-
-        dataset.save()
-        res = "Dataset uploaded successfully"
-
-        # except Exception as e:
-        #     res = f"Unable to upload dataset, because {e}"
-        
-        return Response(res)
-
-class DatasetDetailView(APIView):
-    """
-        Perform put, delete, update operations on particular dataset 
-    """
-    def get(self, request, pk):
-        """Give Detailed view of particular dataset based on ID
-
-        Args:
-            request (client request): contains data from client
-            pk (int): primary key or id of dataset
-
-        Returns:
-            JSON: returns view of dataset in JSON i.e, Java Script Object Notation format
-        """
-        try:
-            res = DatasetSerializer(
-                    Dataset.objects.get(id = pk)
-                ).data
-        except Exception as e:
-            res = f"Unable to load dataset details, beacuase {e}"
-
-        return Response(res)
-
-    def delete(self, request, pk):
-        """delete a particular dataset
-
-        Args:
-            request (client request): contains client info
-            pk (int): primary key of dataset
-
-        Returns:
-            JSON: message about transaction
-        """
-        try:
-            dataset = Dataset.objects.get(id = pk)
-            dataset.delete()
-
-            res = "Dataset deleted Succefully"
-        except Exception as e:
-            res = f"Unable to delete dataset, because {e}"
-        
-        return Response(res)
-
-    def put(self, request, pk):
-        """updates the specific dataset, if exist
-           creates new, if not exit
-
-        Args:
-            request (client request): contains client data
-            pk (int): primary key of dataset
-
-        Returns:
-            JSON: acknowledgement message
-        """
-        res = ""
-        try:
-            dataset = Dataset.objects.filter(id = pk)
-            
-            serializer = DatasetSerializer(dataset.first(), data = request.data)
-
-            if serializer.is_valid():
-                serializer.save()
-                
-                res = "Dataset updated successfully"
-            else:
-                res = "Unable to update dataset"
-                
-        except Exception as e:
-            res = f"Unable to update dataset, because {e}"
-    
-        return Response(res)
-
-    def patch(self, request, pk):
-        """updates the specific dataset
-
-        Args:
-            request (client request): contains client data
-            pk (int): primary key of dataset
-
-        Returns:
-            JSON: acknowledgement message
-        """
-        res = ""
-        try:
-            dataset = Dataset.objects.get(id = pk)
-            serializer = DatasetSerializer(dataset, data = request.data, partial = True)
-
-            if serializer.is_valid():
-                serializer.save()
-                
-                res = "Dataset updated successfully"
-            else:
-                res = "Unable to update dataset"
-
-        except Exception as e:
-            res = f"Unable to update dataset, because {e}"
-    
-        return Response(res)
+    }, status = status.HTTP_200_OK)
 
 class SupportedModelsView(APIView):
     """
@@ -210,12 +56,108 @@ class SupportedModelsView(APIView):
         from .models import models_list
 
         res = [{"id": idx, "name": val[0]} for idx, val in enumerate(models_list)]
-        return Response(res)
+        return Response(res, status = status.HTTP_200_OK)
+
+@api_view(["GET", "POST"])
+def publicModels(request):
+    """List of public models
+
+    Returns:
+        JSON : public models list
+    """
+    public_models = ModelFile.objects.filter(is_public = True)
+    res = ModelFileSerializer(public_models, many = True).data
+
+    return Response(res, status.HTTP_200_OK)
+
+
+# user auth views
+class UserRegister(APIView):
+    permission_classes = (permissions.AllowAny, )
+
+    def post(self, request):
+        """Create new User"""
+        serializer = UserSerializer(data = request.data)
+
+        if serializer.is_valid():
+            if User.objects.filter(username = request.data.get("username")).count() != 0:
+                return Response(status = status.HTTP_400_BAD_REQUEST)
+                
+            user = serializer.create_user(data = request.data)
+        
+            return Response(data = UserSerializer(instance = user).data, status = status.HTTP_201_CREATED)
+
+        return Response(status = status.HTTP_400_BAD_REQUEST)
+
+class UserLogin(APIView):
+    permission_classes      = (permissions.AllowAny, )
+    authentication_classes  = (CsrfExemptSessionAuthentication, )
+
+    def post(self, request):
+        """Login user"""
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        user     = authenticate(username = username, password = password)
+
+        if user is None:
+            return Response(status = status.HTTP_404_NOT_FOUND)
+
+        login(request, user)
+
+        return Response(UserSerializer(user).data, status = status.HTTP_200_OK)
+
+class UserLogout(APIView):
+    permission_classes = (permissions.AllowAny, )
+    authentication_classes = (CsrfExemptSessionAuthentication, )
+
+    # @csrf_exempt 
+    def post(self, request):
+        """Logouts user"""
+        logout(request)
+        return Response(status = status.HTTP_204_NO_CONTENT)
+
+class UserView(APIView):
+    authentication_classes  = (CsrfExemptSessionAuthentication, )
+    permission_classes      = (permissions.IsAuthenticated, )
+
+    def get(self, request):
+        """Get user info"""
+        return Response(UserSerializer(request.user).data, status = status.HTTP_200_OK)
+
+    def put(self, request):
+        """Update user info"""
+        serializer = UserSerializer(instance = request.user, data = request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status = status.HTTP_200_OK)
+
+        return Response(status = status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        """Delete user"""
+        request.user.delete()
+        return Response(status = status.HTTP_204_NO_CONTENT)
+
+class UserAPIKeyGenerate(APIView):
+    permission_classes = (permissions.IsAuthenticated, )
+    authentication_classes = (CsrfExemptSessionAuthentication, )
+
+    def get(self, request):
+        return Response({"API Key" : request.user.api_key}, status.HTTP_200_OK)
+    
+    def post(self, request):
+        request.user.generate_api_key()
+        return Response({"API Key" : request.user.api_key}, status.HTTP_200_OK)
 
 class ModelFileView(APIView):
     """
         List of all Models, or create a model and save into file
     """
+    permission_classes      = (permissions.IsAuthenticated, )
+    authentication_classes  = (CsrfExemptSessionAuthentication, )
+
     def get(self, request):
         """invokes when get request
 
@@ -226,15 +168,13 @@ class ModelFileView(APIView):
             Response: list of all models
         """
         try:
-            if cache.has_key("model_files"):
-                res = cache.get("model_files")
-            else:
-                res = ModelFileSerializer(ModelFile.objects.all(), many = True).data
-                cache.set("model_files", res, 60 * 60 * 2)
+            res = ModelFileSerializer(request.user.models.all(), many = True).data
+            
+            return Response(res, status.HTTP_200_OK)
         except Exception as e:
             res = f"Unable to load models, beacuase {e}"
 
-        return Response(res)
+        return Response(res, status.HTTP_503_SERVICE_UNAVAILABLE)
     
     def post(self, request):
         """invokes post request called used to create model
@@ -246,138 +186,116 @@ class ModelFileView(APIView):
             Response: answer about creation of model
         """
         try:
+            project_name = request.data.get('project_name')
             model_name  = request.data.get('model_name')
-            dataset_id  = request.data.get('dataset_id')
-
-            dataset_id  = int(dataset_id) if str(type(dataset_id)) == "<class 'str'>" else dataset_id
-
-            dataset     = Dataset.objects.get(id = dataset_id)
-
-            if ModelFile.objects.filter(model_name = model_name, dataset = dataset).count() > 0:
-                return Response("Model already exist")
+            user = request.user
             
-            modelFileRecord = ModelFile(
+            modelFileRecord = ModelFile.objects.create(
+                                project_name = project_name,
                                 model_name = model_name,
-                                dataset = dataset,
+                                created_by = user,
                                 
                             )
-            
-            modelFileRecord.model_obj.save(
-                f"{model_name} trained on {dataset.name} dataset - {dataset_id}.pkl",
-                ContentFile(
-                    get_trained_model(
-                        model_name,
-                        dataset_id,
-                        int(request.data.get('knn_val', '0')),
-                    )
-                )
-            )
 
-            modelFileRecord.save()
+            modelFileRecord.add_model_obj(request.data, user)
 
-            response = "Successfully trained model and saved"
+            response = ModelFileSerializer(modelFileRecord).data
+            return Response(response, status.HTTP_201_CREATED)
+
         except Exception as e:
-            response = f"Unable to train model, due to Exception {e}"
+            response = f"{model_name} Unable to train model, due to Exception {e} "
         
-        return Response(response)       
+        return Response(response, status.HTTP_503_SERVICE_UNAVAILABLE)       
 
 class ModelFileDetailView(APIView):
+    # how to get model details for non logged in user and edit access to only owner
+    permission_classes      = (permissions.AllowAny, )
+    authentication_classes  = (CsrfExemptSessionAuthentication, )
+
     """
         Get details of particular model
     """
-    def get(self, request, pk):
+    def get(self, request, project_name):
         """invokes for particular model
 
         Args:
             request (client request): contains client info
-            pk (int): id of model
+            project_name (int): name of the project
 
         Returns:
             JSON: model info
         """
         try:
-            model = ModelFile.objects.get(id = pk)
+            model = ModelFile.objects.get(project_name = project_name)
+            
+            if model.created_by != request.user and model.is_public == False:
+                # no permission to view
+                return Response("You don't have permission to view this model", status.HTTP_401_UNAUTHORIZED)
+
             res = ModelFileSerializer(model).data
+
+            return Response(res, status.HTTP_200_OK)
         except Exception as e:
             res = f"Unable to find model, because {e}"
 
-        return Response(res)
+        return Response(res, status.HTTP_404_NOT_FOUND)
     
-    def delete(self, request, pk):
+    def delete(self, request, project_name):
         """delete a particular model
 
         Args:
             request (client request): contains client info
-            pk (int): primary key of model
+            project_name (str): primary key of model
 
         Returns:
             JSON: message about transaction
         """
         try:
-            model = ModelFile.objects.get(id = pk)
+            model = ModelFile.objects.get(project_name = project_name)
+
+            if model.created_by != request.user:
+                # no permission to delete
+                return Response("You don't have permission to delete this model", status.HTTP_401_UNAUTHORIZED)
+
             model.delete()
 
-            res = "Model deleted Succefully"
+            res = ModelFileSerializer(model).data
+            res = f"Model {project_name} deleted successfully"
+            return Response(res, status.HTTP_202_ACCEPTED)
         except Exception as e:
             res = f"Unable to delete model, because {e}"
         
-        return Response(res)
+        return Response(res, status.HTTP_404_NOT_FOUND)
 
-    def put(self, request, pk):
-        """updates the specific model, if exist
-           creates new, if not exit
+    def put(self, request, project_name):
+        """used to train the model
 
         Args:
-            request (client request): contains client data
-            pk (int): primary key of model
+            project_name (str): name of the project
 
         Returns:
-            JSON: acknowledgement message
+            response: message about training of model
         """
-        res = ""
         try:
-            model = ModelFile.objects.filter(id = pk)
-            
-            if model.count() == 0:
-                ModelFileView().post(request)
-                return Response("Model created successfully")
-
-            model = model.first()
-            model_name  = request.data.get('model_name')
-            dataset_id  = request.data.get('dataset_id')
-            dataset     = Dataset.objects.get(id = dataset_id)
-
-            existing_model = ModelFile.objects.filter(model_name = model_name, dataset = dataset)
-            if existing_model.count() > 0:
-                ModelFileDetailView().delete(request, pk)
-                return Response(f"Model with updated data, already exist with id: {existing_model.first().id}")
-
-            if ModelFile.objects.filter(model_name = model_name, dataset = dataset).count() > 0:
-                return Response("Model updated successfully")
-
-            model.model_name = model_name
-            model.dataset = dataset
-
-            model.model_obj.save(
-                f"{model_name} trained on {dataset.name} dataset - {dataset_id}.pkl",
-                ContentFile(
-                    get_trained_model(
-                        model_name,
-                        dataset_id,
-                        request.data.get('knn_val', 0),
-                    )
-                )
+            modelFileRecord   = ModelFile.objects.get(project_name = project_name)
+            modelFileRecord.train(
+                train_set = get_dataset(request.data)
             )
 
-            model.save()
+            if modelFileRecord.created_by != request.user:
+                # no permission to train
+                return Response("You don't have permission to train this model", status.HTTP_401_UNAUTHORIZED)
 
-            res = "Model updated successfully"
+            # implement result generation of train data for user satifiscation
+            # ....
+            
+            return Response("Model trained successfully", status.HTTP_202_ACCEPTED)
         except Exception as e:
             res = f"Unable to update model, because {e}"
     
-        return Response(res)
+        return Response(res, status = status.HTTP_204_NO_CONTENT)
 
-    def patch(self, request, pk):
+    def patch(self, request, project_name):
         """updates the specific model
 
         Args:
@@ -387,35 +305,19 @@ class ModelFileDetailView(APIView):
         Returns:
             JSON: acknowledgement message
         """
-        res = {}
         try:
-            model = ModelFile.objects.get(id = pk)
+            modelFileRecord = get_object_or_404(ModelFile.objects.filter(project_name = project_name))
+            
+            if modelFileRecord.created_by != request.user:
+                # no permission to update
+                return Response("You don't have permission to update this model", status.HTTP_401_UNAUTHORIZED)
 
-            model_name  = request.data.get('model_name', model.model_name)
-            dataset_id  = request.data.get('dataset_id', model.dataset.id)
+            modelFileRecord.model_name = request.data.get('model_name', modelFileRecord.model_name)
+            modelFileRecord.is_public  = request.data.get('is_public', False)
 
-            dataset     = Dataset.objects.get(id = dataset_id)
+            user = User.objects.get(username = 'admin')
 
-            existing_model = ModelFile.objects.filter(model_name = model_name, dataset = dataset)
-            if existing_model.count() > 0:
-                ModelFileDetailView().delete(request, pk)
-                return Response(f"Model with updated data, already exist with id: {existing_model.first().id}")
-
-            model.model_name = model_name
-            model.dataset = dataset
-
-            model.model_obj.save(
-                f"{model_name} trained on {dataset.name} dataset - {dataset_id}.pkl",
-                ContentFile(
-                    get_trained_model(
-                        model_name,
-                        dataset_id,
-                        request.data.get('knn_val', 0),
-                    )
-                )
-            )
-
-            model.save()
+            modelFileRecord = modelFileRecord.add_model_obj(request.data, user)
 
             res = "Model updated successfully..."
         except Exception as e:
@@ -423,78 +325,45 @@ class ModelFileDetailView(APIView):
     
         return Response(res)
 
-class ModelResponseView(APIView):
-    """
-        Get prediction from saved machine learning model
-    """
-    def get(self, request):
-        """Prediction request if model exist
+    def post(self, request, project_name):
+        """prediction of target for requested dataset if model exist
 
         Args:
-            request (client request): client request info
-                - model_name : str
-                - dataset_id : int
+            project_name (str): name of the project
 
         Returns:
-            JSON: list of saved models
+            JSON: prediction result
         """
         try:
-            print(request.data)
-            model_name  = request.data.get('model_name', None)
-            dataset_id  = request.data.get('dataset_id')
-            dataset     = Dataset.objects.get(id = dataset_id)
-            
-            modelFileRecord = ModelFile.objects.get(model_name = model_name, dataset = dataset)
+            if request.user == AnonymousUser() and "api_key" in request.data:
+                api_key_user = User.objects.get(api_key = request.data.get("api_key"))
 
-            res = {
-                "model_name"    : modelFileRecord.model_name,
-                "dataset"       : modelFileRecord.dataset.name,
-                "model_path"    : modelFileRecord.model_obj.url,
-                **give_analysis_report(
-                    modelFileRecord.model_obj.open('rb'), 
-                    dataset_id
-                )
-            }
+                if api_key_user is None:
+                    # no permission to update
+                    return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
                 
-        except Exception as e:
-            return Response(f"Unable to find model, due to Exception {e}")   
+                user = api_key_user
+            else:
+                user = request.user
 
-        return Response(res)
+            modelFileRecord = get_object_or_404(ModelFile.objects.filter(project_name = project_name))
 
-    def post(self, request):
-        """Prediction request if model exist
-        else creates model and gives prediction
-
-        Args:
-            request (client request): client request info
-                - model_name : str
-                - dataset_id : int
-
-        Returns:
-            JSON: list of saved models
-        """
-        try:
-            model_name  = request.data.get('model_name', None)
-            dataset_id  = request.data.get('dataset_id')
-            dataset     = Dataset.objects.get(id = dataset_id)
-            
-        
-            if ModelFile.objects.filter(model_name = model_name, dataset = dataset).count() == 0:
-                ModelFileView().post(request)
-            
-            modelFileRecord = ModelFile.objects.get(model_name = model_name, dataset = dataset)
-
+            prediction = modelFileRecord.predict(
+                data = request.data
+            )
             res = {
-                "model_name"    : modelFileRecord.model_name,
-                "dataset"       : modelFileRecord.dataset.name,
-                "model_path"    : modelFileRecord.model_obj.url,
-                **give_analysis_report(
-                    modelFileRecord.model_obj.open('rb'), 
-                    dataset_id
-                )
+                **ModelFileSerializer(modelFileRecord).data,
+                "prediction" : prediction,
+                "user" : user.username
             }
-                
-        except Exception as e:
-            return Response(f"Unable to find model, due to Exception {e}")   
 
-        return Response(res)
+            return Response(res, status.HTTP_200_OK)
+        except Exception as e:
+            res = f"Unable to load models, beacuase {e}"
+
+        return Response(res, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class ProjectView(APIView):
+    pass
+
+

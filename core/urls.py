@@ -4,15 +4,26 @@ from .views import *
 
 urlpatterns = [
     path('', apiOverview, name = "documentation"),
-    path('docs/', apiOverview, name = "documentation"),
-    
-    path('datasets/', DatasetView.as_view(), name = "datasets"),
-    path('datasets/<int:pk>', DatasetDetailView.as_view(), name = "dataset detail"),
-    
-    path('supported-models/', SupportedModelsView.as_view(), name = "supported models"),
+    path('docs', apiOverview, name = "documentation"),
+]
 
-    path('models/', ModelFileView.as_view(), name = "models"),
-    path('models/<int:pk>', ModelFileDetailView.as_view(), name = "model detail"),
+# Auth URL patterns
+urlpatterns += [
+    path('api/login', UserLogin.as_view(), name = "login"),
+    path('api/logout', UserLogout.as_view(), name = "logout"),
+    path('api/register', UserRegister.as_view(), name = "register"),
+    path('api/user', UserView.as_view(), name = "user detail"),
+    path('api/user/api_key', UserAPIKeyGenerate.as_view(), name = "user api"),
+]
 
-    path('analyze/', ModelResponseView.as_view(), name = "analyze"),
+# API URL patterns
+urlpatterns += [
+    path('api/supported-models', SupportedModelsView.as_view(), name = "supported models"),
+
+    path('api/models', ModelFileView.as_view(), name = "models"),
+    path('api/model/<str:project_name>', ModelFileDetailView.as_view(), name = "model detail"),
+
+    path('api/public-models', publicModels, name = "public models"),
+    path('<str:project_name>', ProjectView.as_view(), name = "project"),
+
 ]

@@ -64,3 +64,9 @@ Insight Backend was built using the following technologies:
 
 ## License
 Insight Backend is released under the MIT License. Feel free to use, modify, and distribute the code however you like.
+
+
+
+
+# Updates
+- add report generation in specific model file put i.e, training process

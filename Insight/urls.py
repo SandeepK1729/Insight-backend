@@ -10,7 +10,7 @@ from django.shortcuts import redirect
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(coreUrls)),
+    path('', include(coreUrls)),
     # path('', lambda request: redirect('/api'))
 ]
 
