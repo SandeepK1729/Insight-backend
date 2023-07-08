@@ -335,7 +335,13 @@ class ModelFileDetailView(APIView):
             JSON: prediction result
         """
         try:
-            if request.user == AnonymousUser() and "api_key" in request.data:
+            if request.user != AnonymousUser():
+                user = request.user
+            else:
+                if request.data.get("api_key") is None:
+                    # no permission to update
+                    return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
+                
                 api_key_user = User.objects.get(api_key = request.data.get("api_key"))
 
                 if api_key_user is None:
@@ -343,8 +349,6 @@ class ModelFileDetailView(APIView):
                     return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
                 
                 user = api_key_user
-            else:
-                user = request.user
 
             modelFileRecord = get_object_or_404(ModelFile.objects.filter(project_name = project_name))
 
