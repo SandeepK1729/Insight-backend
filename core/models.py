@@ -219,8 +219,8 @@ class ModelFile(models.Model):
 
             while str(i) in data:
                 v = data.get(str(i))
-                if v.isnumeric():
-                    v = float(v)
+                # if v.isnumeric():
+                v = float(v)
                 
                 df_dict[i] = [v]
                 i += 1

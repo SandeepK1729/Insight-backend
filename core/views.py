@@ -334,36 +334,36 @@ class ModelFileDetailView(APIView):
         Returns:
             JSON: prediction result
         """
-        try:
-            if request.user != AnonymousUser():
-                user = request.user
-            else:
-                if request.data.get("api_key") is None:
-                    # no permission to update
-                    return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
-                
-                api_key_user = User.objects.get(api_key = request.data.get("api_key"))
+        # try:
+        if request.user != AnonymousUser():
+            user = request.user
+        else:
+            if request.data.get("api_key") is None:
+                # no permission to update
+                return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
+            
+            api_key_user = User.objects.get(api_key = request.data.get("api_key"))
 
-                if api_key_user is None:
-                    # no permission to update
-                    return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
-                
-                user = api_key_user
+            if api_key_user is None:
+                # no permission to update
+                return Response("You don't have permission to prediction from this model", status.HTTP_401_UNAUTHORIZED)
+            
+            user = api_key_user
 
-            modelFileRecord = get_object_or_404(ModelFile.objects.filter(project_name = project_name))
+        modelFileRecord = get_object_or_404(ModelFile.objects.filter(project_name = project_name))
 
-            prediction = modelFileRecord.predict(
-                data = request.data
-            )
-            res = {
-                **ModelFileSerializer(modelFileRecord).data,
-                "prediction" : prediction,
-                "user" : user.username
-            }
+        prediction = modelFileRecord.predict(
+            data = request.data
+        )
+        res = {
+            **ModelFileSerializer(modelFileRecord).data,
+            "prediction" : prediction,
+            "user" : user.username
+        }
 
-            return Response(res, status.HTTP_200_OK)
-        except Exception as e:
-            res = f"Unable to load models, beacuase {e}"
+        return Response(res, status.HTTP_200_OK)
+        # except Exception as e:
+        #     res = f"Unable to load models, beacuase {e}"
 
         return Response(res, status.HTTP_503_SERVICE_UNAVAILABLE)
 
